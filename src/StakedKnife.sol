@@ -15,15 +15,17 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
     mapping(uint => uint) public refreshTimestamp;
 
     uint constant RATE_PER_SEC = 1;
-    uint constant MAX_CAP = 200;
+    uint public constant MAX_CAP = 200;
 
     IERC721 knives_legacy;
+    IERC20 token;
 
     event Deposit(address user, uint256 tokenId);
     event Withdraw(address user, uint256 tokenId);
 
-    constructor(address _knives_legacy) ERC721("StakedKnife", "SKNIFE") {
+    constructor(address _knives_legacy, adddress _token) ERC721("StakedKnife", "SKNIFE") {
         knives_legacy = IERC721(_knives_legacy);
+        token = IERC20(_token);
     }
 
     function pause() public onlyOwner {
@@ -34,17 +36,13 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
         _unpause();
     }
 
-    function safeMint(address to, uint tokenId) internal {
-        _safeMint(to, tokenId);
-    }
-
     function deposit(uint256 tokenId, address user) internal
     {
         require (user == knives_legacy.ownerOf(tokenId), "Sender must be owner.");
         require(balanceOf(user) < 50, "Cannot stake more.");
         knives_legacy.transferFrom(user, address(this), tokenId);
         refreshTimestamp[tokenId] = block.timestamp;
-        safeMint(user, tokenId);
+        _mint(user, tokenId);
         emit Deposit(user, tokenId);
     }
 
@@ -57,9 +55,11 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
     function withdraw(uint256 tokenId, address user) internal
     {
         require(ownerOf(tokenId) == user, "TokenId not staked by sender.");
+        require(token.balanceOf(user) <= MAX_CAP * balanceOf(user));
         knives_legacy.transferFrom(address(this), user, tokenId);
         refreshTimestamp[tokenId] = block.timestamp;
         burn(tokenId);
+        require(token.balanceOf(user) <= MAX_CAP * balanceOf(user), "Can't withdraw, use your tokens first.");
         emit Withdraw(user, tokenId);
     }
 
@@ -67,6 +67,15 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
         for (uint i = 0; i < tokenIds.length; i++){
             withdraw(tokenIds[i], msg.sender);
         }
+    }
+
+    function claim(uint tokenId, uint user) public {
+        require(user == msg.sender || user == address(this), "Only sender or this can claim.");
+        uint balance = token.balanceOf(user);
+        uint accumulated = getLGCYMPAmount(tokenId);
+        
+
+
     }
 
 
@@ -80,7 +89,7 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
     }
     
 
-    function getLGCYMPAmount(uint tokenId) external view returns (uint) {
+    function getLGCYMPAmount(uint tokenId) public view returns (uint) {
         if(refreshTimestamp[tokenId] == 0) return 0;
         else {
             uint duration = block.timestamp - refreshTimestamp[tokenId];
@@ -89,10 +98,10 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
         }
     }
 
-    function setLGCYMPAmount(uint amount, uint tokenId) external onlyAuthorized {
-        updatedAmount[tokenId] = amount;
-        refreshTimestamp[tokenId] = block.timestamp;
-    }
+    // function setLGCYMPAmount(uint amount, uint tokenId) external onlyAuthorized {
+    //     updatedAmount[tokenId] = amount;
+    //     refreshTimestamp[tokenId] = block.timestamp;
+    // }
 
     function _beforeTokenTransfer(address from, address to, uint256 tokenId)
         internal

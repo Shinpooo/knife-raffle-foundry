@@ -1,8 +1,11 @@
 # Compiler files
 cache/
 out/
+.vscode/
 
 # Ignores development broadcast logs
 !/broadcast
 /broadcast/*
 /broadcast/*/31337/
+
+.env
