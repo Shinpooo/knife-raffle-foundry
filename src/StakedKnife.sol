@@ -24,8 +24,9 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
     IERC721 knives_legacy;
     MPLegacyToken token;
 
-    event Deposit(address user, uint256 tokenId);
-    event Withdraw(address user, uint256 tokenId);
+    event Deposit(address indexed user, uint256 tokenId);
+    event Withdraw(address indexed user, uint256 tokenId);
+    event Claim(address indexed user, uint256 indexed tokenId, uint amount);
 
     constructor(address _knives_legacy, address _token) ERC721("StakedKnife", "SKNIFE") {
         knives_legacy = IERC721(_knives_legacy);
@@ -82,6 +83,7 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
         require(amount <= max_claimable_amount, "Spend some tokens first.");
         depositTimestamp[tokenId] = block.timestamp;
         token.mint(user, amount);
+        emit Claim(user, tokenId, amount);
     }
 
 
