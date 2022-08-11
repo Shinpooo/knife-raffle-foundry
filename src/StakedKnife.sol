@@ -2,30 +2,34 @@
 pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "./Authorizable.sol";
+import "./MPLegacyToken.sol";
 
-contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burnable, Authorizable {
+
+contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burnable {
 
 
     mapping (uint => uint) public updatedAmount;
-    mapping(uint => uint) public refreshTimestamp;
+    // mapping (uint => uint) public claimed;
+    mapping(uint => uint) public depositTimestamp;
 
     uint constant RATE_PER_SEC = 1;
-    uint public constant MAX_CAP = 200;
+    uint public constant MAX_CAP = 50 * 10**18;
 
     IERC721 knives_legacy;
-    IERC20 token;
+    MPLegacyToken token;
 
     event Deposit(address user, uint256 tokenId);
     event Withdraw(address user, uint256 tokenId);
 
-    constructor(address _knives_legacy, adddress _token) ERC721("StakedKnife", "SKNIFE") {
+    constructor(address _knives_legacy, address _token) ERC721("StakedKnife", "SKNIFE") {
         knives_legacy = IERC721(_knives_legacy);
-        token = IERC20(_token);
+        token = MPLegacyToken(_token);
     }
 
     function pause() public onlyOwner {
@@ -41,7 +45,7 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
         require (user == knives_legacy.ownerOf(tokenId), "Sender must be owner.");
         require(balanceOf(user) < 50, "Cannot stake more.");
         knives_legacy.transferFrom(user, address(this), tokenId);
-        refreshTimestamp[tokenId] = block.timestamp;
+        depositTimestamp[tokenId] = block.timestamp;
         _mint(user, tokenId);
         emit Deposit(user, tokenId);
     }
@@ -55,11 +59,10 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
     function withdraw(uint256 tokenId, address user) internal
     {
         require(ownerOf(tokenId) == user, "TokenId not staked by sender.");
-        require(token.balanceOf(user) <= MAX_CAP * balanceOf(user));
+        claim(user, tokenId);
         knives_legacy.transferFrom(address(this), user, tokenId);
-        refreshTimestamp[tokenId] = block.timestamp;
         burn(tokenId);
-        require(token.balanceOf(user) <= MAX_CAP * balanceOf(user), "Can't withdraw, use your tokens first.");
+        require(token.balanceOf(user) <= MAX_CAP * (balanceOf(user) + 1), "Can't withdraw, use your tokens first.");
         emit Withdraw(user, tokenId);
     }
 
@@ -69,13 +72,16 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
         }
     }
 
-    function claim(uint tokenId, uint user) public {
-        require(user == msg.sender || user == address(this), "Only sender or this can claim.");
-        uint balance = token.balanceOf(user);
-        uint accumulated = getLGCYMPAmount(tokenId);
-        
-
-
+    function claim(address user, uint tokenId) public {
+        require(msg.sender == user || msg.sender == address(this), "Only sender or this contract can claim.");
+        require(user == ownerOf(tokenId), "Not owner.");
+        uint token_balance = token.balanceOf(user);
+        uint amount = getLGCYMPAmount(tokenId);
+        uint address_cap = MAX_CAP * (balanceOf(user) + 1);
+        uint max_claimable_amount = address_cap - token_balance;
+        require(amount <= max_claimable_amount, "Spend some tokens first.");
+        depositTimestamp[tokenId] = block.timestamp;
+        token.mint(user, amount);
     }
 
 
@@ -90,18 +96,14 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
     
 
     function getLGCYMPAmount(uint tokenId) public view returns (uint) {
-        if(refreshTimestamp[tokenId] == 0) return 0;
+        if(depositTimestamp[tokenId] == 0) return 0;
         else {
-            uint duration = block.timestamp - refreshTimestamp[tokenId];
-            uint amount_accumulated = duration * RATE_PER_SEC + updatedAmount[tokenId];
+            uint duration = block.timestamp - depositTimestamp[tokenId];
+            uint amount_accumulated = duration * RATE_PER_SEC * 10**18;
             return amount_accumulated >= MAX_CAP  ? MAX_CAP : amount_accumulated;
         }
     }
 
-    // function setLGCYMPAmount(uint amount, uint tokenId) external onlyAuthorized {
-    //     updatedAmount[tokenId] = amount;
-    //     refreshTimestamp[tokenId] = block.timestamp;
-    // }
 
     function _beforeTokenTransfer(address from, address to, uint256 tokenId)
         internal
