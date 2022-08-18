@@ -17,8 +17,8 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
     // mapping (uint => uint) public claimed;
     mapping(uint => uint) public depositTimestamp;
 
-    uint constant RATE_PER_SEC = 1;
-    uint public constant MAX_CAP = 50 * 10**18;
+    uint public constant RATE_PER_DAY = 200 * 10**18;
+    uint public constant MAX_CAP = 1000 * 10**18;
 
     IERC721 knives_legacy;
     MPLegacyToken token;
@@ -56,21 +56,21 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
         }
     }
 
-    function withdraw(uint256 tokenId, address user) internal
+    function withdraw(uint256 tokenId) external
     {
-        require(ownerOf(tokenId) == user, "TokenId not staked by sender.");
-        claim(user, tokenId);
-        knives_legacy.transferFrom(address(this), user, tokenId);
+        require(msg.sender == ownerOf(tokenId),"Not owner.");
+        claim(msg.sender, tokenId);
+        knives_legacy.transferFrom(address(this), msg.sender, tokenId);
         burn(tokenId);
-        require(token.balanceOf(user) <= MAX_CAP * (balanceOf(user) + 1), "Can't withdraw, use your tokens first.");
-        emit Withdraw(user, tokenId);
+        require(token.balanceOf(msg.sender) <= MAX_CAP * (balanceOf(msg.sender) + 1), "Can't withdraw, use your tokens first.");
+        emit Withdraw(msg.sender, tokenId);
     }
 
-    function withdrawSelected(uint256[] calldata tokenIds) external {
-        for (uint i = 0; i < tokenIds.length; i++){
-            withdraw(tokenIds[i], msg.sender);
-        }
-    }
+    // function withdrawSelected(uint256[] calldata tokenIds) external {
+    //     for (uint i = 0; i < tokenIds.length; i++){
+    //         withdraw(tokenIds[i], msg.sender);
+    //     }
+    // }
 
     function claim(address user, uint tokenId) public {
         require(msg.sender == user || msg.sender == address(this), "Only sender or this contract can claim.");
@@ -100,7 +100,7 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
         if(depositTimestamp[tokenId] == 0) return 0;
         else {
             uint duration = block.timestamp - depositTimestamp[tokenId];
-            uint amount_accumulated = duration * RATE_PER_SEC * 10**18;
+            uint amount_accumulated = duration * RATE_PER_DAY / 1 days;
             return amount_accumulated >= MAX_CAP  ? MAX_CAP : amount_accumulated;
         }
     }

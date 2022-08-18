@@ -73,6 +73,22 @@ contract KnivesLegacyTicket is ERC721, ERC721Enumerable, Pausable, Ownable, VRFC
         s_subscriptionId = subscriptionId;
     }
 
+    function setRequestConfirmation(uint16 _requestConfirmation) external onlyOwner {
+        requestConfirmations = _requestConfirmation;
+    }
+
+    function setKeyHash(bytes32 _keyHash) external onlyOwner {
+        keyHash = _keyHash;
+    }
+
+    function setSubscriptionId(uint64 _subscriptionId) external onlyOwner {
+        s_subscriptionId = _subscriptionId;
+    }
+
+    function setVrfCoordinator(address _vrfCoordinator) external onlyOwner {
+        vrfCoordinator = _vrfCoordinator;
+    }
+
       // Assumes the subscription is funded sufficiently.
     function requestRandomWords(uint raffleId) external onlyOwner {
         // Will revert if subscription is not set and funded.
