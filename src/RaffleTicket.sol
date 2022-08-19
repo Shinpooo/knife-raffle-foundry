@@ -36,6 +36,7 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
     struct Raffle { 
         string project_name;
         string image_url;
+        string raffle_type;
         uint price;
         uint mint_fee;
         uint max_ticket;
@@ -119,12 +120,13 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
     // }
     
 
-    function createRaffle(string memory project_name, string memory image_url, uint price, uint mint_fee, uint max_ticket, uint max_ticket_wallet, uint32 winners_amount, uint open_timestamp, uint close_timestamp) public onlyAuthorized {
+    function createRaffle(string memory project_name, string memory image_url, string memory raffle_type, uint price, uint mint_fee, uint max_ticket, uint max_ticket_wallet, uint32 winners_amount, uint open_timestamp, uint close_timestamp) public onlyAuthorized {
         _RaffleIdCounter.increment();
         uint raffle_id = _RaffleIdCounter.current();
         Raffle storage new_raffle = raffleIdToRaffle[raffle_id];
         new_raffle.project_name = project_name;
         new_raffle.image_url = image_url;
+        new_raffle.raffle_type = raffle_type;
         new_raffle.price = price;
         new_raffle.mint_fee = mint_fee;
         new_raffle.max_ticket = max_ticket;
@@ -135,10 +137,11 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         new_raffle.close_timestamp = close_timestamp;
     }
 
-    function editRaffle(uint raffle_id, string memory project_name, string memory image_url, uint price, uint mint_fee, uint max_ticket, uint max_ticket_wallet, uint32 winners_amount, uint open_timestamp, uint close_timestamp) public onlyAuthorized {
+    function editRaffle(uint raffle_id, string memory project_name, string memory image_url, string memory raffle_type, uint price, uint mint_fee, uint max_ticket, uint max_ticket_wallet, uint32 winners_amount, uint open_timestamp, uint close_timestamp) public onlyAuthorized {
         Raffle storage raffle = raffleIdToRaffle[raffle_id];
         raffle.project_name = project_name;
         raffle.image_url = image_url;
+        raffle.raffle_type = raffle_type;
         raffle.price = price;
         raffle.mint_fee = mint_fee;
         raffle.max_ticket = max_ticket;

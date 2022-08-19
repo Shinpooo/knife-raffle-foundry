@@ -10,15 +10,19 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import "./MPLegacyToken.sol";
 
 
+/*
+* @author Pooshin
+* @notice This a staking contract for Knives Legact. When knive a knife is staked, it generates a non-transferable NFT to the depositor as a proof of its ownership. Staked knives accumulates $SUPPLY tokens until a MAX CAP is reached.
+*/
+
 contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burnable {
 
 
     mapping (uint => uint) public updatedAmount;
-    // mapping (uint => uint) public claimed;
     mapping(uint => uint) public depositTimestamp;
 
-    uint public constant RATE_PER_DAY = 200 * 10**18;
-    uint public constant MAX_CAP = 1000 * 10**18;
+    uint public RATE_PER_DAY = 200 * 10**18;
+    uint public MAX_CAP = 1000 * 10**18;
 
     IERC721 knives_legacy;
     MPLegacyToken token;
@@ -40,6 +44,12 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
         _unpause();
     }
 
+    /*
+    * @notice Deposit a Knife in this contract called by. Mint an NFT as a proof of deposit.
+    * @dev Limit of 50 knives deposited per wallet. Can only be called by depositSelected().
+    * @param tokenId The token ID of the deposited token.
+    * @param user the address of the knife owner
+    */
     function deposit(uint256 tokenId, address user) internal
     {
         require (user == knives_legacy.ownerOf(tokenId), "Sender must be owner.");
@@ -50,12 +60,21 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
         emit Deposit(user, tokenId);
     }
 
+    /*
+    * @notice Deposit selected knives. Called by the end-user.
+    * @param tokenIds The token IDs of the selected tokens.
+    */
     function depositSelected(uint256[] calldata tokenIds) external {
         for (uint i = 0; i < tokenIds.length; i++){
             deposit(tokenIds[i], msg.sender);
         }
     }
 
+    /*
+    * @notice Withdraw a knife from the staking contract. Burn the related proof of ownership nft.
+    * @dev Supply tokens are claimed when withdrawing. Hence, when withdrawing, the end-user should not exceed its $SUPPLY token max cap. The max cap supply tokens of a given address is calculated by: address $SUPPLY Cap = Knife $SUPPLY Cap * (Staked knives amount + 1).
+    * @param tokenId The token ID of the withdrawn token.
+    */
     function withdraw(uint256 tokenId) external
     {
         require(msg.sender == ownerOf(tokenId),"Not owner.");
@@ -66,17 +85,17 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
         emit Withdraw(msg.sender, tokenId);
     }
 
-    // function withdrawSelected(uint256[] calldata tokenIds) external {
-    //     for (uint i = 0; i < tokenIds.length; i++){
-    //         withdraw(tokenIds[i], msg.sender);
-    //     }
-    // }
-
+    /*
+    * @notice Claim & transfer the $SUPPLY tokens associated to a staked knife.
+    * @dev Claimable amount should not exceed the user address cap.
+    * @param user the knife staker.
+    * @param tokenId the knife Id.
+    */
     function claim(address user, uint tokenId) public {
         require(msg.sender == user || msg.sender == address(this), "Only sender or this contract can claim.");
         require(user == ownerOf(tokenId), "Not owner.");
         uint token_balance = token.balanceOf(user);
-        uint amount = getLGCYMPAmount(tokenId);
+        uint amount = getSupplyAmount(tokenId);
         uint address_cap = MAX_CAP * (balanceOf(user) + 1);
         uint max_claimable_amount = address_cap - token_balance;
         require(amount <= max_claimable_amount, "Spend some tokens first.");
@@ -85,7 +104,11 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
         emit Claim(user, tokenId, amount);
     }
 
-
+    /*
+    * @notice View the list of tokenIds minted as a proof of ownershup of a user.
+    * @param user the user address.
+    * @return A list of token Ids owner by the user.
+    */
     function tokenIdsOfUser(address user) public view returns (uint256[] memory) {
         uint256 ownerTokenCount = balanceOf(user);
         uint256[] memory tokenIds = new uint256[](ownerTokenCount);
@@ -95,8 +118,13 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
         return tokenIds;
     }
     
-
-    function getLGCYMPAmount(uint tokenId) public view returns (uint) {
+     /*
+    * @notice Calculate the amount of $SUPPLY tokens accumulated by a staked knife.
+    * @dev The amount increase linearly with time until it reaches a MAX_CAP where it does not increase anymore
+    * @param tokenId the tokenId whose we want to get the accumulated amount
+    * @return The accumulated $SUPPLY amount.
+    */
+    function getSupplyAmount(uint tokenId) public view returns (uint) {
         if(depositTimestamp[tokenId] == 0) return 0;
         else {
             uint duration = block.timestamp - depositTimestamp[tokenId];
@@ -123,5 +151,14 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
+    }
+
+
+    function setMaxCap(uint _cap) public onlyOwner {
+        MAX_CAP = _cap;
+    }
+
+    function setRate(uint _rate) public onlyOwner {
+        RATE_PER_DAY = _rate;
     }
 }
