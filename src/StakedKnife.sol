@@ -64,7 +64,7 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
     * @notice Deposit selected knives. Called by the end-user.
     * @param tokenIds The token IDs of the selected tokens.
     */
-    function depositSelected(uint256[] calldata tokenIds) external {
+    function depositSelected(uint256[] calldata tokenIds) external whenNotPaused {
         for (uint i = 0; i < tokenIds.length; i++){
             deposit(tokenIds[i], msg.sender);
         }
@@ -75,7 +75,7 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
     * @dev Supply tokens are claimed when withdrawing. Hence, when withdrawing, the end-user should not exceed its $SUPPLY token max cap. The max cap supply tokens of a given address is calculated by: address $SUPPLY Cap = Knife $SUPPLY Cap * (Staked knives amount + 1).
     * @param tokenId The token ID of the withdrawn token.
     */
-    function withdraw(uint256 tokenId) external
+    function withdraw(uint256 tokenId) external whenNotPaused
     {
         require(msg.sender == ownerOf(tokenId),"Not owner.");
         claim(msg.sender, tokenId);
@@ -91,7 +91,7 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
     * @param user the knife staker.
     * @param tokenId the knife Id.
     */
-    function claim(address user, uint tokenId) public {
+    function claim(address user, uint tokenId) public whenNotPaused {
         require(msg.sender == user || msg.sender == address(this), "Only sender or this contract can claim.");
         require(user == ownerOf(tokenId), "Not owner.");
         uint token_balance = token.balanceOf(user);
