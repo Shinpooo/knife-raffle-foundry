@@ -31,6 +31,7 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
     event Deposit(address indexed user, uint256 tokenId);
     event Withdraw(address indexed user, uint256 tokenId);
     event Claim(address indexed user, uint256 indexed tokenId, uint amount);
+    event ClaimAll(address indexed user, uint amount);
 
     constructor(address _knives_legacy, address _token) ERC721("StakedKnife", "SKNIFE") {
         knives_legacy = IERC721(_knives_legacy);
@@ -107,7 +108,6 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
 
     /*
     * @notice Claim & transfer the $SUPPLY tokens associated to a staked knife.
-    * @dev Claimable amount should not exceed the user address cap.
     * @param user the knife staker.
     * @param tokenId the knife Id.
     */
@@ -118,6 +118,20 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
         depositTimestamp[tokenId] = block.timestamp;
         token.mint(user, amount);
         emit Claim(user, tokenId, amount);
+    }
+
+    /*
+    * @notice Claim & transfer the $SUPPLY tokens for every knives.
+    */
+    function claimAll() external whenNotPaused {
+        uint[] memory tokenIds = tokenIdsOfUser(msg.sender);
+        uint amount;
+        for (uint i = 0; i < tokenIds.length; i++){
+            amount += getSupplyAmount(tokenIds[i]);
+            depositTimestamp[tokenIds[i]] = block.timestamp;
+        }
+        token.mint(msg.sender, amount);
+        emit ClaimAll(msg.sender, amount);
     }
 
     /*
