@@ -88,7 +88,7 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
     */
     function withdraw(uint256 tokenId, address user) internal
     {
-        require (user == knives_legacy.ownerOf(tokenId), "User must be owner.");
+        require(user == ownerOf(tokenId), "User must be owner.");
         claim(user, tokenId);
         knives_legacy.transferFrom(address(this), user, tokenId);
         burn(tokenId);
