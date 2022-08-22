@@ -148,7 +148,7 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
         return tokenIds;
     }
     
-     /*
+    /*
     * @notice Calculate the amount of $SUPPLY tokens accumulated by a staked knife.
     * @dev The amount increase linearly with time until it reaches a MAX_CAP where it does not increase anymore
     * @param tokenId the tokenId whose we want to get the accumulated amount
@@ -161,6 +161,20 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
             uint amount_accumulated = duration * RATE_PER_DAY / 1 days;
             return amount_accumulated >= MAX_CAP  ? MAX_CAP : amount_accumulated;
         }
+    }
+
+    /*
+    * @notice Get the claimable $SUPPLY amount of an address.
+    * @param user the user address.
+    * @return The claimable amount.
+    */
+     function getClaimableAmount(address user) public view returns (uint) {
+        uint[] memory tokenIds = tokenIdsOfUser(user);
+        uint amount;
+        for (uint i = 0; i < tokenIds.length; i++){
+            amount += getSupplyAmount(tokenIds[i]);
+        }
+        return amount;
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 tokenId)
