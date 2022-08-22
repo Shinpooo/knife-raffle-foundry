@@ -168,7 +168,7 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
     * @param user the user address.
     * @return The claimable amount.
     */
-     function getClaimableAmount(address user) public view returns (uint) {
+    function getClaimableAmount(address user) public view returns (uint) {
         uint[] memory tokenIds = tokenIdsOfUser(user);
         uint amount;
         for (uint i = 0; i < tokenIds.length; i++){
