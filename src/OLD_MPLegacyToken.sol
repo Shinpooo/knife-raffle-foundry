@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Authorizable.sol";
 import "./StakedKnife.sol";
 
-contract MPLegacyToken is ERC20, ERC20Burnable, Pausable, Ownable, Authorizable {
+contract OLDMPLegacyToken is ERC20, ERC20Burnable, Pausable, Ownable, Authorizable {
 
     StakedKnife stakedKnife;
     constructor() ERC20("SupplyToken", "SUPPLY") {
@@ -27,6 +27,7 @@ contract MPLegacyToken is ERC20, ERC20Burnable, Pausable, Ownable, Authorizable 
     }
 
     function mint(address to, uint256 amount) public onlyAuthorized {
+        require(balanceOf(to) + amount <= stakedKnife.MAX_CAP() * (stakedKnife.balanceOf(to) + 1), "too many tokens already.");
         _mint(to, amount);
     }
 

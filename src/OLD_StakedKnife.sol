@@ -15,7 +15,7 @@ import "./MPLegacyToken.sol";
 * @notice This a staking contract for Knives Legact. When knive a knife is staked, it generates a non-transferable NFT to the depositor as a proof of its ownership. Staked knives accumulates $SUPPLY tokens until a MAX CAP is reached.
 */
 
-contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burnable {
+contract OLDStakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burnable {
 
 
     mapping (uint => uint) public updatedAmount;
@@ -61,7 +61,8 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
     */
     function deposit(uint256 tokenId, address user) internal
     {
-        require (user == knives_legacy.ownerOf(tokenId), "User must be owner.");
+        require (user == knives_legacy.ownerOf(tokenId), "Sender must be owner.");
+        require(balanceOf(user) < 50, "Cannot stake more.");
         knives_legacy.transferFrom(user, address(this), tokenId);
         depositTimestamp[tokenId] = block.timestamp;
         _mint(user, tokenId);
@@ -73,36 +74,24 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
     * @param tokenIds The token IDs of the selected tokens.
     */
     function depositSelected(uint256[] calldata tokenIds) external whenNotPaused {
-        uint length = tokenIds.length;
-        require(balanceOf(msg.sender) + length < 50, "Cannot stake more.");
-        for (uint i = 0; i < length; i++){
+        for (uint i = 0; i < tokenIds.length; i++){
             deposit(tokenIds[i], msg.sender);
         }
     }
 
     /*
     * @notice Withdraw a knife from the staking contract. Burn the related proof of ownership nft.
-    * @dev Supply tokens are claimed when withdrawing.
+    * @dev Supply tokens are claimed when withdrawing. Hence, when withdrawing, the end-user should not exceed its $SUPPLY token max cap. The max cap supply tokens of a given address is calculated by: address $SUPPLY Cap = Knife $SUPPLY Cap * (Staked knives amount + 1).
     * @param tokenId The token ID of the withdrawn token.
     */
-    function withdraw(uint256 tokenId, address user) internal
+    function withdraw(uint256 tokenId) external whenNotPaused
     {
-        require (user == knives_legacy.ownerOf(tokenId), "User must be owner.");
-        claim(user, tokenId);
-        knives_legacy.transferFrom(address(this), user, tokenId);
+        require(msg.sender == ownerOf(tokenId),"Not owner.");
+        claim(msg.sender, tokenId);
+        knives_legacy.transferFrom(address(this), msg.sender, tokenId);
         burn(tokenId);
-        emit Withdraw(user, tokenId);
-    }
-
-    /*
-    * @notice Withdraw selected knives. Called by the end-user.
-    * @param tokenIds The token IDs of the selected tokens.
-    */
-    function withdrawSelected(uint256[] calldata tokenIds) external whenNotPaused {
-        uint length = tokenIds.length;
-        for (uint i = 0; i < length; i++){
-            withdraw(tokenIds[i], msg.sender);
-        }
+        require(token.balanceOf(msg.sender) <= MAX_CAP * (balanceOf(msg.sender) + 1), "withdrawError: Too many $SUPPLY in your wallet, use or burn some to proceed.");
+        emit Withdraw(msg.sender, tokenId);
     }
 
     /*
@@ -114,7 +103,11 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
     function claim(address user, uint tokenId) public whenNotPaused {
         require(msg.sender == user || msg.sender == address(this), "Only sender or this contract can claim.");
         require(user == ownerOf(tokenId), "Not owner.");
+        uint token_balance = token.balanceOf(user);
         uint amount = getSupplyAmount(tokenId);
+        uint address_cap = MAX_CAP * (balanceOf(user) + 1);
+        uint max_claimable_amount = address_cap - token_balance;
+        require(amount <= max_claimable_amount, "claimError: Too many $SUPPLY in your wallet, use or burn some to proceed.");
         depositTimestamp[tokenId] = block.timestamp;
         token.mint(user, amount);
         emit Claim(user, tokenId, amount);
