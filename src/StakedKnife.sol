@@ -81,7 +81,7 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
         claim(msg.sender, tokenId);
         knives_legacy.transferFrom(address(this), msg.sender, tokenId);
         burn(tokenId);
-        require(token.balanceOf(msg.sender) <= MAX_CAP * (balanceOf(msg.sender) + 1), "Can't withdraw, use your tokens first.");
+        require(token.balanceOf(msg.sender) <= MAX_CAP * (balanceOf(msg.sender) + 1), "withdrawError: Too many $SUPPLY in your wallet, use or burn some to proceed.");
         emit Withdraw(msg.sender, tokenId);
     }
 
@@ -98,7 +98,7 @@ contract StakedKnife is ERC721, ERC721Enumerable, Pausable, Ownable, ERC721Burna
         uint amount = getSupplyAmount(tokenId);
         uint address_cap = MAX_CAP * (balanceOf(user) + 1);
         uint max_claimable_amount = address_cap - token_balance;
-        require(amount <= max_claimable_amount, "Spend some tokens first.");
+        require(amount <= max_claimable_amount, "claimError: Too many $SUPPLY in your wallet, use or burn some to proceed.");
         depositTimestamp[tokenId] = block.timestamp;
         token.mint(user, amount);
         emit Claim(user, tokenId, amount);
