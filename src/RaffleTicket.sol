@@ -242,16 +242,16 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
 
     function getDisplayedRaffleIds() public view returns (uint[] memory) {
         uint total_raffle_amount = _RaffleIdCounter.current();
-        uint displayed_raffle_ammount;
+        uint displayed_raffle_amount;
         uint currentIndex;
 
         for (uint i = 1; i <= total_raffle_amount; i++) {
             if (raffleIdToRaffle[i].close_timestamp >= block.timestamp - 4 weeks || raffleIdToRaffle[i].open_timestamp <= block.timestamp + 4 weeks) {
-                displayed_raffle_ammount += 1;
+                displayed_raffle_amount += 1;
             }
         }
 
-        uint[] memory raffleIds = new uint256[](displayed_raffle_ammount);
+        uint[] memory raffleIds = new uint256[](displayed_raffle_amount);
         for (uint256 i = 1; i <= total_raffle_amount; i++) {
             if (raffleIdToRaffle[i].close_timestamp >= block.timestamp - 4 weeks || raffleIdToRaffle[i].open_timestamp <= block.timestamp + 4 weeks) {
                 raffleIds[currentIndex] = raffleIdToRaffle[i].raffle_id;
@@ -264,16 +264,16 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
 
     function getOpenRaffleIds() public view returns (uint[] memory) {
         uint total_raffle_amount = _RaffleIdCounter.current();
-        uint open_raffle_ammount;
+        uint open_raffle_amount;
         uint currentIndex;
 
         for (uint i = 1; i <= total_raffle_amount; i++) {
             if (isRaffleOpen(i)) {
-                open_raffle_ammount += 1;
+                open_raffle_amount += 1;
             }
         }
 
-        uint[] memory raffleIds = new uint256[](open_raffle_ammount);
+        uint[] memory raffleIds = new uint256[](open_raffle_amount);
         for (uint256 i = 1; i <= total_raffle_amount; i++) {
             if (isRaffleOpen(i)) {
                 raffleIds[currentIndex] = i;
@@ -285,16 +285,16 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
 
     function getClosedRaffleIds() public view returns (uint[] memory) {
         uint total_raffle_amount = _RaffleIdCounter.current();
-        uint closed_raffle_ammount;
+        uint closed_raffle_amount;
         uint currentIndex;
 
         for (uint i = 1; i <= total_raffle_amount; i++) {
             if (getRaffleState(i) == 2) {
-                closed_raffle_ammount += 1;
+                closed_raffle_amount += 1;
             }
         }
 
-        uint[] memory raffleIds = new uint256[](closed_raffle_ammount);
+        uint[] memory raffleIds = new uint256[](closed_raffle_amount);
         for (uint256 i = 1; i <= total_raffle_amount; i++) {
             if (getRaffleState(i) == 2) {
                 raffleIds[currentIndex] = i;
@@ -306,16 +306,16 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
 
     function getComingRaffleIds() public view returns (uint[] memory) {
         uint total_raffle_amount = _RaffleIdCounter.current();
-        uint closed_raffle_ammount;
+        uint closed_raffle_amount;
         uint currentIndex;
 
         for (uint i = 1; i <= total_raffle_amount; i++) {
             if (getRaffleState(i) == 1) {
-                closed_raffle_ammount += 1;
+                closed_raffle_amount += 1;
             }
         }
 
-        uint[] memory raffleIds = new uint256[](closed_raffle_ammount);
+        uint[] memory raffleIds = new uint256[](closed_raffle_amount);
         for (uint256 i = 1; i <= total_raffle_amount; i++) {
             if (getRaffleState(i) == 1) {
                 raffleIds[currentIndex] = i;
