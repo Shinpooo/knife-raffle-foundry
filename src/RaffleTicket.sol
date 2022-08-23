@@ -196,11 +196,11 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
     
     // VIEWS
 
-    function getRaffleState(uint raffleId) external view returns (string memory){
+    function getRaffleState(uint raffleId) public view returns (uint){
         Raffle storage raffle = raffleIdToRaffle[raffleId];
-        if (block.timestamp < raffle.open_timestamp) return "SOON";
-        else if (block.timestamp > raffle.close_timestamp) return "CLOSED";
-        else return "OPEN";
+        if (block.timestamp < raffle.open_timestamp) return 1; // SOON
+        else if (block.timestamp > raffle.close_timestamp) return 2; // CLOSED
+        else return 3; // OPEN
     }
 
     function getWinners(uint raffle_id) external view returns (address[] memory) {
@@ -223,12 +223,106 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
 
     function isRaffleOpen(uint raffleId) public view returns (bool){
         Raffle storage raffle = raffleIdToRaffle[raffleId];
-        return block.timestamp >= raffle.open_timestamp && block.timestamp <= raffle.close_timestamp ? true : false;
+        return block.timestamp >= raffle.open_timestamp && block.timestamp <= raffle.close_timestamp;
     }
 
     function hasWon(uint raffleId, address user) external view returns (bool){
         Raffle storage raffle = raffleIdToRaffle[raffleId];
         return raffle.has_won[user];
+    }
+
+    function tokenIdsOfUser(address user) public view returns (uint256[] memory) {
+        uint256 ownerTokenCount = balanceOf(user);
+        uint256[] memory tokenIds = new uint256[](ownerTokenCount);
+        for (uint256 i; i < ownerTokenCount; i++) {
+            tokenIds[i] = tokenOfOwnerByIndex(user, i);
+        }
+        return tokenIds;
+    }
+
+    function getDisplayedRaffleIds() public view returns (uint[] memory) {
+        uint total_raffle_amount = _RaffleIdCounter.current();
+        uint displayed_raffle_ammount;
+        uint currentIndex;
+
+        for (uint i = 1; i <= total_raffle_amount; i++) {
+            if (raffleIdToRaffle[i].close_timestamp <= block.timestamp - 4 weeks || raffleIdToRaffle[i].open_timestamp >= block.timestamp + 4 weeks) {
+                displayed_raffle_ammount += 1;
+            }
+        }
+
+        uint[] memory raffleIds = new uint256[](displayed_raffle_ammount);
+        for (uint256 i = 1; i <= total_raffle_amount; i++) {
+            if (raffleIdToRaffle[i].close_timestamp <= block.timestamp - 4 weeks || raffleIdToRaffle[i].open_timestamp >= block.timestamp + 4 weeks) {
+                raffleIds[currentIndex] = raffleIdToRaffle[i].raffle_id;
+                currentIndex += 1;
+            }
+        }
+
+        return raffleIds;
+    }
+
+    function getOpenRaffleIds() public view returns (uint[] memory) {
+        uint total_raffle_amount = _RaffleIdCounter.current();
+        uint open_raffle_ammount;
+        uint currentIndex;
+
+        for (uint i = 1; i <= total_raffle_amount; i++) {
+            if (isRaffleOpen(i)) {
+                open_raffle_ammount += 1;
+            }
+        }
+
+        uint[] memory raffleIds = new uint256[](open_raffle_ammount);
+        for (uint256 i = 1; i <= total_raffle_amount; i++) {
+            if (isRaffleOpen(i)) {
+                raffleIds[currentIndex] = i;
+                currentIndex += 1;
+            }
+        }
+        return raffleIds;
+    }
+
+    function getClosedRaffleIds() public view returns (uint[] memory) {
+        uint total_raffle_amount = _RaffleIdCounter.current();
+        uint closed_raffle_ammount;
+        uint currentIndex;
+
+        for (uint i = 1; i <= total_raffle_amount; i++) {
+            if (getRaffleState(i) == 2) {
+                closed_raffle_ammount += 1;
+            }
+        }
+
+        uint[] memory raffleIds = new uint256[](closed_raffle_ammount);
+        for (uint256 i = 1; i <= total_raffle_amount; i++) {
+            if (getRaffleState(i) == 2) {
+                raffleIds[currentIndex] = i;
+                currentIndex += 1;
+            }
+        }
+        return raffleIds;
+    }
+
+    function getComingRaffleIds() public view returns (uint[] memory) {
+        uint total_raffle_amount = _RaffleIdCounter.current();
+        uint closed_raffle_ammount;
+        uint currentIndex;
+
+        for (uint i = 1; i <= total_raffle_amount; i++) {
+            if (getRaffleState(i) == 1) {
+                closed_raffle_ammount += 1;
+            }
+        }
+
+        uint[] memory raffleIds = new uint256[](closed_raffle_ammount);
+        for (uint256 i = 1; i <= total_raffle_amount; i++) {
+            if (getRaffleState(i) == 1) {
+                raffleIds[currentIndex] = i;
+                currentIndex += 1;
+            }
+        }
+        return raffleIds;
     }
 
     // VRF PARAMS SETTERS
