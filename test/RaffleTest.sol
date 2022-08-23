@@ -43,7 +43,7 @@ contract RaffleTest is Test {
         uint256[] memory tokenIds = knife.tokenIdsOfUser(RandomDude);
         stakedKnife.depositSelected(tokenIds);
         // wait 1 day for the knife to earn some SUPPLY tokens
-        vm.warp(block.timestamp + 6 days);
+        vm.warp(block.timestamp + 20 weeks);
         // Claim them
         stakedKnife.claim(RandomDude, tokenIds[0]);
         vm.stopPrank();
@@ -56,10 +56,23 @@ contract RaffleTest is Test {
         // create raffle as admin
         raffleTicket.createRaffle("Project2", "test2.png", "Whitelist", raffle2_price, 10**16, 500, 5, 20, block.timestamp, block.timestamp + 100);
         vm.prank(RandomDude);
+        
 
         // create raffle as random -> should fail
         vm.expectRevert(bytes("caller is not authorized"));
         raffleTicket.createRaffle("Project3", "test3", "NFT", 50 * 10**18, 10**16, 500, 5, 20, block.timestamp + 10, block.timestamp + 100);
+
+        raffleTicket.createRaffle("Project4", "test4", "NFT", 50 * 10**18, 10**16, 500, 5, 20, block.timestamp + 3 weeks, block.timestamp + 4 weeks);
+
+        raffleTicket.createRaffle("Project5", "test5", "NFT", 50 * 10**18, 10**16, 500, 5, 20, block.timestamp + 4 weeks, block.timestamp + 5 weeks);
+
+        raffleTicket.createRaffle("Project6", "test6", "NFT", 50 * 10**18, 10**16, 500, 5, 20, block.timestamp - 5 weeks, block.timestamp - 4 weeks);
+
+        raffleTicket.createRaffle("Project7", "test7", "NFT", 50 * 10**18, 10**16, 500, 5, 20, block.timestamp - 4 weeks, block.timestamp - 3 weeks);
+
+        raffleTicket.createRaffle("Project8", "test8", "NFT", 50 * 10**18, 10**16, 500, 5, 20, block.timestamp - 4 weeks, block.timestamp + 3 weeks);
+
+        
 
         // Check raffle open condition with respect to timestamp
         assertFalse(raffleTicket.isRaffleOpen(1));
@@ -92,6 +105,24 @@ contract RaffleTest is Test {
         
         assertFalse(raffleTicket.isRaffleOpen(1));
         assertFalse(raffleTicket.isRaffleOpen(2));
+
+
+        // Displayed : 1 2 4 5 7 8
+        // Closed : 1 2 6 7
+        // open : 8
+        // Coming : 4 5
+
+        uint256[] memory displayed_raffles = raffleTicket.getDisplayedRaffleIds();
+        uint256[] memory closed_raffles = raffleTicket.getClosedRaffleIds();
+        uint256[] memory open_raffles = raffleTicket.getOpenRaffleIds();
+        uint256[] memory coming_raffles = raffleTicket.getComingRaffleIds();
+        console.log(displayed_raffles.length);
+        console.log(closed_raffles.length);
+        console.log(open_raffles.length);
+        console.log(coming_raffles.length);
+        // console.log(raffleTicket.getClosedRaffleIds());
+        // console.log(raffleTicket.getOpenRaffleIds());
+        // console.log(raffleTicket.getComingRaffleIds());
 
         // raffleTicket.requestRandomWords(1);
     }

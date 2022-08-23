@@ -25,7 +25,7 @@ contract DepositTest is Test {
     }
 
     function testDepositKnivesAmount(uint8 amountDeposited, uint8 amountMinted) public {
-        vm.assume(amountDeposited <= 50);
+        vm.assume(amountDeposited < 50);
         vm.assume(amountMinted > amountDeposited);
         knife.mint(amountMinted);
         uint256[] memory tokenIds = tokenIdsOfUser(address(this), amountDeposited);

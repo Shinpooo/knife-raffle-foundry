@@ -246,14 +246,14 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         uint currentIndex;
 
         for (uint i = 1; i <= total_raffle_amount; i++) {
-            if (raffleIdToRaffle[i].close_timestamp >= block.timestamp - 4 weeks || raffleIdToRaffle[i].open_timestamp <= block.timestamp + 4 weeks) {
+            if ((raffleIdToRaffle[i].close_timestamp >= block.timestamp - 4 weeks && raffleIdToRaffle[i].close_timestamp <= block.timestamp) || (raffleIdToRaffle[i].open_timestamp <= block.timestamp + 4 weeks && raffleIdToRaffle[i].close_timestamp >= block.timestamp)) {
                 displayed_raffle_amount += 1;
             }
         }
 
         uint[] memory raffleIds = new uint256[](displayed_raffle_amount);
         for (uint256 i = 1; i <= total_raffle_amount; i++) {
-            if (raffleIdToRaffle[i].close_timestamp >= block.timestamp - 4 weeks || raffleIdToRaffle[i].open_timestamp <= block.timestamp + 4 weeks) {
+            if ((raffleIdToRaffle[i].close_timestamp >= block.timestamp - 4 weeks && raffleIdToRaffle[i].close_timestamp <= block.timestamp) || (raffleIdToRaffle[i].open_timestamp <= block.timestamp + 4 weeks && raffleIdToRaffle[i].close_timestamp >= block.timestamp)) {
                 raffleIds[currentIndex] = raffleIdToRaffle[i].raffle_id;
                 currentIndex += 1;
             }
