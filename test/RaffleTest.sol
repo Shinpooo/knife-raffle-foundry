@@ -19,6 +19,23 @@ contract RaffleTest is Test {
     address Ororys = address(1);
     address RandomDude = address(2);
 
+    struct Raffle { 
+        string project_name;
+        string image_url;
+        string raffle_type;
+        uint price;
+        uint mint_fee;
+        uint max_ticket;
+        uint max_ticket_wallet;
+        uint32 winners_amount;
+        uint raffle_id;
+        uint open_timestamp;
+        uint close_timestamp;
+        uint[] random_numbers;
+        address[] participants;
+        address[] winners;
+    }
+
     function setUp() public {
         knife = new Knife();
         token = new MPLegacyToken();
@@ -112,14 +129,14 @@ contract RaffleTest is Test {
         // open : 8
         // Coming : 4 5
 
-        uint256[] memory displayed_raffles = raffleTicket.getDisplayedRaffleIds();
-        uint256[] memory closed_raffles = raffleTicket.getClosedRaffleIds();
-        uint256[] memory open_raffles = raffleTicket.getOpenRaffleIds();
-        uint256[] memory coming_raffles = raffleTicket.getComingRaffleIds();
-        console.log(displayed_raffles.length);
-        console.log(closed_raffles.length);
-        console.log(open_raffles.length);
-        console.log(coming_raffles.length);
+        // Raffle[] memory displayed_raffles = raffleTicket.getDisplayedRaffleIds();
+        // Raffle[] memory closed_raffles = raffleTicket.getClosedRaffleIds();
+        // Raffle[] memory open_raffles = raffleTicket.getOpenRaffleIds();
+        // Raffle[] memory coming_raffles = raffleTicket.getComingRaffleIds();
+        // console.log(displayed_raffles.length);
+        // console.log(closed_raffles.length);
+        // console.log(open_raffles.length);
+        // console.log(coming_raffles.length);
         // console.log(raffleTicket.getClosedRaffleIds());
         // console.log(raffleTicket.getOpenRaffleIds());
         // console.log(raffleTicket.getComingRaffleIds());

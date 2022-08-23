@@ -30,9 +30,6 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
     Counters.Counter private _tokenIdCounter;
     Counters.Counter private _RaffleIdCounter;
 
-    mapping (uint => uint) public tokenIdToRaffleId;
-    mapping (uint => Raffle) public raffleIdToRaffle;
-        
     struct Raffle { 
         string project_name;
         string image_url;
@@ -48,8 +45,13 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         uint[] random_numbers;
         address[] participants;
         address[] winners;
-        mapping (address => bool) has_won;
     }
+
+    mapping (uint => uint) public tokenIdToRaffleId;
+    mapping (uint => Raffle) public raffleIdToRaffle;
+    mapping (uint => mapping(address => bool)) public has_won;
+        
+
 
     
     constructor(uint64 subscriptionId, address token_address) ERC721("KnivesLegacyTicket", "KLTICKET") VRFConsumerBaseV2(vrfCoordinator){
@@ -63,7 +65,7 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
       // Assumes the subscription is funded sufficiently.
     function requestRandomWords(uint raffleId) external onlyAuthorized {
         // Will revert if subscription is not set and funded.
-        Raffle storage raffle = raffleIdToRaffle[raffleId];
+        Raffle memory raffle = raffleIdToRaffle[raffleId];
         require(isRaffleOpen(raffleId), "Raffle is closed.");
         require(raffle.winners_amount < raffle.participants.length, "Not enough participants.");
         current_raffle = raffleId;
@@ -97,15 +99,14 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
             uint random_number = random_numbers[i];
             uint random_index = random_number % n_participants;
             address winner = raffle.participants[random_index];
-            while (raffle.has_won[winner]){
+            while (has_won[raffleId][winner]){
                 random_number += 1;
                 random_index = random_number % n_participants;
                 winner = raffle.participants[random_index];
             }
             raffle.winners.push(winner);
-            raffle.has_won[winner] = true;
+            has_won[raffleId][winner] = true;
         }
-
     }
 
 
@@ -197,38 +198,37 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
     // VIEWS
 
     function getRaffleState(uint raffleId) public view returns (uint){
-        Raffle storage raffle = raffleIdToRaffle[raffleId];
+        Raffle memory raffle = raffleIdToRaffle[raffleId];
         if (block.timestamp < raffle.open_timestamp) return 1; // SOON
         else if (block.timestamp > raffle.close_timestamp) return 2; // CLOSED
         else return 3; // OPEN
     }
 
     function getWinners(uint raffle_id) external view returns (address[] memory) {
-        Raffle storage raffle = raffleIdToRaffle[raffle_id];
+        Raffle memory raffle = raffleIdToRaffle[raffle_id];
         address[] memory winners = raffle.winners;
         return winners;
     }
 
     function getRandomNumbers(uint raffle_id) external view returns (uint[] memory) {
-        Raffle storage raffle = raffleIdToRaffle[raffle_id];
+        Raffle memory raffle = raffleIdToRaffle[raffle_id];
         uint[] memory random_numbers = raffle.random_numbers;
         return random_numbers;
     }
 
     function getParticipants(uint raffle_id) external view returns (address[] memory) {
-        Raffle storage raffle = raffleIdToRaffle[raffle_id];
+        Raffle memory raffle = raffleIdToRaffle[raffle_id];
         address[] memory participants = raffle.participants;
         return participants;
     }
 
     function isRaffleOpen(uint raffleId) public view returns (bool){
-        Raffle storage raffle = raffleIdToRaffle[raffleId];
+        Raffle memory raffle = raffleIdToRaffle[raffleId];
         return block.timestamp >= raffle.open_timestamp && block.timestamp <= raffle.close_timestamp;
     }
 
     function hasWon(uint raffleId, address user) external view returns (bool){
-        Raffle storage raffle = raffleIdToRaffle[raffleId];
-        return raffle.has_won[user];
+        return has_won[raffleId][user];
     }
 
     function tokenIdsOfUser(address user) public view returns (uint256[] memory) {
@@ -240,7 +240,7 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         return tokenIds;
     }
 
-    function getDisplayedRaffleIds() public view returns (uint[] memory) {
+    function getDisplayedRaffleIds() public view returns (Raffle[] memory) {
         uint total_raffle_amount = _RaffleIdCounter.current();
         uint displayed_raffle_amount;
         uint currentIndex;
@@ -251,18 +251,18 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
             }
         }
 
-        uint[] memory raffleIds = new uint256[](displayed_raffle_amount);
+        Raffle[] memory raffles = new Raffle[](displayed_raffle_amount);
         for (uint256 i = 1; i <= total_raffle_amount; i++) {
             if ((raffleIdToRaffle[i].close_timestamp >= block.timestamp - 4 weeks && raffleIdToRaffle[i].close_timestamp <= block.timestamp) || (raffleIdToRaffle[i].open_timestamp <= block.timestamp + 4 weeks && raffleIdToRaffle[i].close_timestamp >= block.timestamp)) {
-                raffleIds[currentIndex] = raffleIdToRaffle[i].raffle_id;
+                raffles[currentIndex] = raffleIdToRaffle[i];
                 currentIndex += 1;
             }
         }
 
-        return raffleIds;
+        return raffles;
     }
 
-    function getOpenRaffleIds() public view returns (uint[] memory) {
+    function getOpenRaffleIds() public view returns (Raffle[] memory) {
         uint total_raffle_amount = _RaffleIdCounter.current();
         uint open_raffle_amount;
         uint currentIndex;
@@ -273,17 +273,17 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
             }
         }
 
-        uint[] memory raffleIds = new uint256[](open_raffle_amount);
+        Raffle[] memory raffles = new Raffle[](open_raffle_amount);
         for (uint256 i = 1; i <= total_raffle_amount; i++) {
             if (isRaffleOpen(i)) {
-                raffleIds[currentIndex] = i;
+                raffles[currentIndex] = raffleIdToRaffle[i];
                 currentIndex += 1;
             }
         }
-        return raffleIds;
+        return raffles;
     }
 
-    function getClosedRaffleIds() public view returns (uint[] memory) {
+    function getClosedRaffleIds() public view returns (Raffle[] memory) {
         uint total_raffle_amount = _RaffleIdCounter.current();
         uint closed_raffle_amount;
         uint currentIndex;
@@ -294,17 +294,17 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
             }
         }
 
-        uint[] memory raffleIds = new uint256[](closed_raffle_amount);
+        Raffle[] memory raffles = new Raffle[](closed_raffle_amount);
         for (uint256 i = 1; i <= total_raffle_amount; i++) {
             if (getRaffleState(i) == 2) {
-                raffleIds[currentIndex] = i;
+                raffles[currentIndex] = raffleIdToRaffle[i];
                 currentIndex += 1;
             }
         }
-        return raffleIds;
+        return raffles;
     }
 
-    function getComingRaffleIds() public view returns (uint[] memory) {
+    function getComingRaffleIds() public view returns (Raffle[] memory) {
         uint total_raffle_amount = _RaffleIdCounter.current();
         uint closed_raffle_amount;
         uint currentIndex;
@@ -315,14 +315,14 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
             }
         }
 
-        uint[] memory raffleIds = new uint256[](closed_raffle_amount);
+        Raffle[] memory raffles = new Raffle[](closed_raffle_amount);
         for (uint256 i = 1; i <= total_raffle_amount; i++) {
             if (getRaffleState(i) == 1) {
-                raffleIds[currentIndex] = i;
+                raffles[currentIndex] = raffleIdToRaffle[i];
                 currentIndex += 1;
             }
         }
-        return raffleIds;
+        return raffles;
     }
 
     // VRF PARAMS SETTERS
