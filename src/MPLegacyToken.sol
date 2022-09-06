@@ -6,16 +6,10 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Authorizable.sol";
-import "./StakedKnife.sol";
 
 contract MPLegacyToken is ERC20, ERC20Burnable, Pausable, Ownable, Authorizable {
 
-    StakedKnife stakedKnife;
     constructor() ERC20("SupplyToken", "SUPPLY") {
-    }
-
-    function setStakedKnife(address _stakedKnife) external onlyOwner {
-        stakedKnife = StakedKnife(_stakedKnife);
     }
 
     function pause() public onlyOwner {
