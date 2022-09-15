@@ -1,0 +1,27 @@
+string project_name;
+        string image_url;
+        string raffle_type;
+        uint price;
+        uint mint_fee;
+        uint max_ticket;
+        uint max_ticket_wallet;
+        uint32 winners_amount;
+        uint raffle_id;
+        uint open_timestamp;
+        uint close_timestamp;
+        uint[] random_numbers;
+        address[] participants;
+        address[] winners;
+
+    struct ProjectInfo {
+        string twitter_url;
+        string discord_url;
+        string network;
+        uint nft_price;
+        uint mint_timestamp;
+    }
+
+[projectname, imageurl, raffletype, price, mintfee, max_ticket, max_ticket_wallet, winners_amout, raffle_id, opents, closets, random_num, participants, winners]
+
+["test1", "image1", "nft", 10, 100000000000000, 100, 10, 20, 1, 100000, 200000000000, [], [], []]
+["twittercom", "discordggg", "avalanche", 2, 10000000]

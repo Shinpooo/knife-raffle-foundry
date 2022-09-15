@@ -9,11 +9,6 @@ import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
 import "./MPLegacyToken.sol";
 import "./Authorizable.sol";
 
-/*
-* @author Pooshin
-* @notice This a Raffle contract for Knives Legacy. It allows for the owners to create & edit Raffles for NFT projects. Raffles entries are minted as an NFT
-*/
-
 contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBaseV2 {
     VRFCoordinatorV2Interface COORDINATOR;
 
@@ -142,6 +137,30 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
     // }
     
 
+    // function createRaffle(string memory project_name, string memory image_url, string memory raffle_type, string memory twitter_url, string memory discord_url, string memory network, uint nft_price, uint mint_timestamp,  uint price, uint mint_fee, uint max_ticket, uint max_ticket_wallet, uint32 winners_amount, uint open_timestamp, uint close_timestamp) public onlyAuthorized {
+    //     _RaffleIdCounter.increment();
+    //     uint raffle_id = _RaffleIdCounter.current();
+    //     Raffle storage new_raffle = raffleIdToRaffle[raffle_id];
+    //     ProjectInfo storage new_project_info = raffleIdToProjectInfo[raffle_id];
+    //     new_raffle.project_name = project_name;
+    //     new_raffle.image_url = image_url;
+    //     new_raffle.raffle_type = raffle_type;
+    //     new_raffle.price = price;
+    //     new_raffle.mint_fee = mint_fee;
+    //     new_raffle.max_ticket = max_ticket;
+    //     new_raffle.max_ticket_wallet = max_ticket_wallet;
+    //     new_raffle.winners_amount = winners_amount;
+    //     new_raffle.raffle_id = raffle_id;
+    //     new_raffle.open_timestamp = open_timestamp;
+    //     new_raffle.close_timestamp = close_timestamp;
+    //     new_project_info.twitter_url = twitter_url;
+    //     new_project_info.discord_url = discord_url;
+    //     new_project_info.network = network;
+    //     new_project_info.nft_price = nft_price;
+    //     new_project_info.mint_timestamp = mint_timestamp;
+
+    // }
+
     function createRaffle(Raffle memory new_raffle, ProjectInfo memory new_project_info) public onlyAuthorized {
         _RaffleIdCounter.increment();
         uint raffle_id = _RaffleIdCounter.current();
@@ -150,7 +169,7 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         new_raffle.participants = empty_address;
         new_raffle.winners = empty_address;
         new_raffle.random_numbers = empty_uint;
-        new_raffle.raffle_id = raffle_id;
+        new_raffle.raffle_id = raffle_id; // not sure about that
         raffleIdToRaffle[raffle_id] = new_raffle;
         raffleIdToProjectInfo[raffle_id] = new_project_info;
     }
@@ -165,6 +184,24 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         raffleIdToRaffle[raffleId] = new_raffle;
         raffleIdToProjectInfo[raffleId] = new_project_info;
     }
+
+    
+
+    // function editRaffle(uint raffle_id, string memory project_name, string memory image_url, string memory raffle_type, uint price, uint mint_fee, uint max_ticket, uint max_ticket_wallet, uint32 winners_amount, uint open_timestamp, uint close_timestamp) public onlyAuthorized {
+    //     Raffle storage raffle = raffleIdToRaffle[raffle_id];
+    //     raffle.project_name = project_name;
+    //     raffle.image_url = image_url;
+    //     raffle.raffle_type = raffle_type;
+    //     raffle.price = price;
+    //     raffle.mint_fee = mint_fee;
+    //     raffle.max_ticket = max_ticket;
+    //     raffle.max_ticket_wallet = max_ticket_wallet;
+    //     raffle.winners_amount = winners_amount;
+    //     raffle.open_timestamp = open_timestamp;
+    //     raffle.close_timestamp = close_timestamp;
+    // }
+
+
 
     function safeMint(uint raffleId, uint amount) public payable {
         Raffle storage raffle = raffleIdToRaffle[raffleId];
@@ -278,6 +315,68 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         return (raffles, projectInfos);
     }
 
+    // function getOpenRaffleIds() public view returns (Raffle[] memory) {
+    //     uint total_raffle_amount = _RaffleIdCounter.current();
+    //     uint open_raffle_amount;
+    //     uint currentIndex;
+
+    //     for (uint i = 1; i <= total_raffle_amount; i++) {
+    //         if (isRaffleOpen(i)) {
+    //             open_raffle_amount += 1;
+    //         }
+    //     }
+
+    //     Raffle[] memory raffles = new Raffle[](open_raffle_amount);
+    //     for (uint256 i = 1; i <= total_raffle_amount; i++) {
+    //         if (isRaffleOpen(i)) {
+    //             raffles[currentIndex] = raffleIdToRaffle[i];
+    //             currentIndex += 1;
+    //         }
+    //     }
+    //     return raffles;
+    // }
+
+    // function getClosedRaffleIds() public view returns (Raffle[] memory) {
+    //     uint total_raffle_amount = _RaffleIdCounter.current();
+    //     uint closed_raffle_amount;
+    //     uint currentIndex;
+
+    //     for (uint i = 1; i <= total_raffle_amount; i++) {
+    //         if (getRaffleState(i) == 2) {
+    //             closed_raffle_amount += 1;
+    //         }
+    //     }
+
+    //     Raffle[] memory raffles = new Raffle[](closed_raffle_amount);
+    //     for (uint256 i = 1; i <= total_raffle_amount; i++) {
+    //         if (getRaffleState(i) == 2) {
+    //             raffles[currentIndex] = raffleIdToRaffle[i];
+    //             currentIndex += 1;
+    //         }
+    //     }
+    //     return raffles;
+    // }
+
+    // function getComingRaffleIds() public view returns (Raffle[] memory) {
+    //     uint total_raffle_amount = _RaffleIdCounter.current();
+    //     uint closed_raffle_amount;
+    //     uint currentIndex;
+
+    //     for (uint i = 1; i <= total_raffle_amount; i++) {
+    //         if (getRaffleState(i) == 1) {
+    //             closed_raffle_amount += 1;
+    //         }
+    //     }
+
+    //     Raffle[] memory raffles = new Raffle[](closed_raffle_amount);
+    //     for (uint256 i = 1; i <= total_raffle_amount; i++) {
+    //         if (getRaffleState(i) == 1) {
+    //             raffles[currentIndex] = raffleIdToRaffle[i];
+    //             currentIndex += 1;
+    //         }
+    //     }
+    //     return raffles;
+    // }
 
     // VRF PARAMS SETTERS
 
