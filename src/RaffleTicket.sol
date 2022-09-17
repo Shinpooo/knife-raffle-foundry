@@ -1,18 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
+import "./MPLegacyToken.sol";
 import "./Authorizable.sol";
-
 
 /*
 * @author Pooshin
-* @notice This a Raffle contract for Knives Legacy. It allows for the owners to create & edit Raffles for NFT projects. Raffles entries are minted as an NFT. Winners are picked using Chainlink VRF V2. When there are several winners, only different addresses can be picked as winners.
+* @notice This a Raffle contract for Knives Legacy. It allows for the owners to create & edit Raffles for NFT projects. Raffles entries are minted as an NFT
 */
 
 contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBaseV2 {
@@ -28,7 +27,7 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
     uint256 public s_requestId;
     uint256 public current_raffle;
 
-    address tokenReceiver;
+    MPLegacyToken token;
 
     using Counters for Counters.Counter;
 
@@ -37,7 +36,6 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
 
 
     struct Raffle { 
-        address token;
         string project_name;
         string image_url;
         string raffle_type;
@@ -79,14 +77,14 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
 
     
     
-    constructor(uint64 subscriptionId) ERC721("KnivesLegacyTicket", "KLTICKET") VRFConsumerBaseV2(vrfCoordinator){
+    constructor(uint64 subscriptionId, address token_address) ERC721("KnivesLegacyTicket", "KLTICKET") VRFConsumerBaseV2(vrfCoordinator){
         COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
         s_subscriptionId = subscriptionId;
+        token = MPLegacyToken(token_address);
     }
 
 
 
-      // Assumes the subscription is funded sufficiently.
     function requestRandomWords(uint raffleId) external onlyAuthorized {
         // Will revert if subscription is not set and funded.
         Raffle memory raffle = raffleIdToRaffle[raffleId];
@@ -137,8 +135,7 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
             has_won[raffleId][winner] = true;
         }
     }
-
-    
+  
 
     function createRaffle(Raffle memory new_raffle, ProjectInfo memory new_project_info) public onlyAuthorized {
         _RaffleIdCounter.increment();
@@ -163,9 +160,8 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         require(isRaffleOpen(raffleId), "Raffle is closed.");
         require(raffle.current_entries + amount <= raffle.max_ticket, "Raffle has reached max entries.");
         require(balanceOf(msg.sender) + amount <= raffle.max_ticket_wallet, "User has too many tickets.");
-        IERC20 token = IERC20(raffle.token);
         require(token.balanceOf(msg.sender) >= raffle.price * amount, "Not enough SUPPLY tokens.");
-        token.transferFrom(msg.sender, tokenReceiver, raffle.price * amount);
+        token.burnFrom(msg.sender, raffle.price * amount);
         uint tokenId;
         for (uint i = 0; i < amount; i++){
             _tokenIdCounter.increment();
@@ -185,9 +181,6 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         super._beforeTokenTransfer(from, to, tokenId);
     }
 
-    function setTokenReceiver(address _receiver) external onlyAuthorized {
-        tokenReceiver = _receiver;
-    }
 
 
     // The following functions are overrides required by Solidity.
@@ -206,6 +199,8 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         require(os, "Failed to send Avax");
     }
 
+
+    
     // VIEWS
 
     function getRaffleState(uint raffleId) public view returns (uint){
