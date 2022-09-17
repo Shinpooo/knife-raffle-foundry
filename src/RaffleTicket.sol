@@ -17,7 +17,6 @@ import "./Authorizable.sol";
 contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBaseV2 {
     VRFCoordinatorV2Interface COORDINATOR;
 
-    // Your subscription ID.
     uint64 s_subscriptionId;
     address vrfCoordinator = 0x2eD832Ba664535e5886b75D64C46EB9a228C2610;
     bytes32 keyHash = 0x354d2f95da55398f44b7cff77da56283d9c6c829a4bdf1bbcaf2ad6a4d081f61;
@@ -48,9 +47,7 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         uint raffle_id;
         uint open_timestamp;
         uint close_timestamp;
-        uint[] random_numbers;
-        address[] participants;
-        address[] winners;
+        uint current_entries;
     }
 
     struct ProjectInfo {
@@ -66,14 +63,19 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         uint raffleId;
     }
 
+    struct RaffleState {
+        uint[] random_numbers;
+        address[] participants;
+        address[] winners;
+    }
+
     mapping (uint => uint) public tokenIdToRaffleId;
     mapping (uint => Raffle) public raffleIdToRaffle;
     mapping (uint => mapping(address => bool)) public has_won;
     mapping (uint => ProjectInfo) public raffleIdToProjectInfo;
+    mapping (uint => RaffleState) raffleIdToRaffleState;
+
     
-        
-
-
     
     constructor(uint64 subscriptionId, address token_address) ERC721("KnivesLegacyTicket", "KLTICKET") VRFConsumerBaseV2(vrfCoordinator){
         COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
@@ -83,12 +85,13 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
 
 
 
-      // Assumes the subscription is funded sufficiently.
     function requestRandomWords(uint raffleId) external onlyAuthorized {
         // Will revert if subscription is not set and funded.
         Raffle memory raffle = raffleIdToRaffle[raffleId];
-        require(isRaffleOpen(raffleId), "Raffle is closed.");
-        require(raffle.winners_amount < raffle.participants.length, "Not enough participants.");
+        RaffleState memory raffle_state = raffleIdToRaffleState[raffleId];
+        require(block.timestamp > raffle.close_timestamp, "Raffle should be finished.");
+        require(raffle.winners_amount < raffle.current_entries, "Not enough participants.");
+        require(raffle_state.random_numbers.length == 0, "Random Numbers already picked.");
         current_raffle = raffleId;
         uint32 numWords = raffle.winners_amount;
         uint32 _callbackGasLimit = callbackGasLimit == 0 ? 20000 * numWords : callbackGasLimit; // Default value = 20000 * n_random
@@ -106,71 +109,56 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         uint256, /* requestId */
         uint256[] memory randomWords
     ) internal override {
-        Raffle storage raffle = raffleIdToRaffle[current_raffle];
+        Raffle memory raffle = raffleIdToRaffle[current_raffle];
+        RaffleState storage raffle_state = raffleIdToRaffleState[current_raffle];
         for (uint i=0; i < raffle.winners_amount; i++) {
-            raffle.random_numbers.push(randomWords[i]);
+            raffle_state.random_numbers.push(randomWords[i]);
         }
     }
 
     function pickWinners(uint raffleId) public onlyAuthorized {
-        Raffle storage raffle = raffleIdToRaffle[raffleId];
-        uint[] memory random_numbers = raffle.random_numbers;
-        uint n_participants = raffle.participants.length;
+        Raffle memory raffle = raffleIdToRaffle[raffleId];
+        RaffleState storage raffle_state = raffleIdToRaffleState[raffleId];
+        require(raffle_state.winners.length == 0, "Winners already set.");
+        uint[] memory random_numbers = raffle_state.random_numbers;
+        uint n_participants = raffle.current_entries;
         for (uint i=0; i < raffle.winners_amount; i++) {
             uint random_number = random_numbers[i];
             uint random_index = random_number % n_participants;
-            address winner = raffle.participants[random_index];
+            address winner = raffle_state.participants[random_index];
             while (has_won[raffleId][winner]){
                 random_number += 1;
                 random_index = random_number % n_participants;
-                winner = raffle.participants[random_index];
+                winner = raffle_state.participants[random_index];
             }
-            raffle.winners.push(winner);
+            raffle_state.winners.push(winner);
             has_won[raffleId][winner] = true;
         }
     }
-
-
-
-    // testing
-
-    // function addParticipants(uint raffleId, address[] calldata participants) public {
-    //     Raffle storage raffle = raffleIdToRaffle[raffleId];
-    //     for (uint i = 0; i < participants.length; i++){
-    //         raffle.participants.push(participants[i]);
-    //     }
-    // }
-    
+  
 
     function createRaffle(Raffle memory new_raffle, ProjectInfo memory new_project_info) public onlyAuthorized {
         _RaffleIdCounter.increment();
         uint raffle_id = _RaffleIdCounter.current();
-        address[] memory empty_address;
-        uint[] memory empty_uint;
-        new_raffle.participants = empty_address;
-        new_raffle.winners = empty_address;
-        new_raffle.random_numbers = empty_uint;
         new_raffle.raffle_id = raffle_id;
+        new_raffle.current_entries = 0;
         raffleIdToRaffle[raffle_id] = new_raffle;
         raffleIdToProjectInfo[raffle_id] = new_project_info;
     }
 
     function editRaffle(uint raffleId, Raffle memory new_raffle, ProjectInfo memory new_project_info) public onlyAuthorized {
         new_raffle.raffle_id = raffleId;
-        address[] memory empty_address;
-        uint[] memory empty_uint;
-        new_raffle.participants = empty_address;
-        new_raffle.winners = empty_address;
-        new_raffle.random_numbers = empty_uint;
+        new_raffle.current_entries = raffleIdToRaffle[raffleId].current_entries;
         raffleIdToRaffle[raffleId] = new_raffle;
         raffleIdToProjectInfo[raffleId] = new_project_info;
     }
 
     function safeMint(uint raffleId, uint amount) public payable {
         Raffle storage raffle = raffleIdToRaffle[raffleId];
+        RaffleState storage raffle_state = raffleIdToRaffleState[raffleId];
         require(msg.value == raffle.mint_fee * amount, "AVAX mint fee not sent.");
         require(isRaffleOpen(raffleId), "Raffle is closed.");
-        require(raffle.participants.length + amount <= raffle.max_ticket, "Raffle has reached max entries.");
+        require(raffle.current_entries + amount <= raffle.max_ticket, "Raffle has reached max entries.");
         require(balanceOf(msg.sender) + amount <= raffle.max_ticket_wallet, "User has too many tickets.");
         require(token.balanceOf(msg.sender) >= raffle.price * amount, "Not enough SUPPLY tokens.");
         token.burnFrom(msg.sender, raffle.price * amount);
@@ -179,16 +167,17 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
             _tokenIdCounter.increment();
             tokenId = _tokenIdCounter.current();
             _safeMint(msg.sender, tokenId);
-            raffle.participants.push(msg.sender);
+            raffle_state.participants.push(msg.sender);
             tokenIdToRaffleId[tokenId] = raffleId;
         }
+        raffle.current_entries += amount;
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 tokenId)
         internal
         override(ERC721, ERC721Enumerable)
     {   
-        require(from == address(0), "Non transferable NFT.");
+        require(from == address(0) || to == address(0), "Non transferable NFT.");
         super._beforeTokenTransfer(from, to, tokenId);
     }
 
@@ -217,20 +206,20 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
     }
 
     function getWinners(uint raffle_id) external view returns (address[] memory) {
-        Raffle memory raffle = raffleIdToRaffle[raffle_id];
-        address[] memory winners = raffle.winners;
+        RaffleState memory raffle_state = raffleIdToRaffleState[raffle_id];
+        address[] memory winners = raffle_state.winners;
         return winners;
     }
 
     function getRandomNumbers(uint raffle_id) external view returns (uint[] memory) {
-        Raffle memory raffle = raffleIdToRaffle[raffle_id];
-        uint[] memory random_numbers = raffle.random_numbers;
+        RaffleState memory raffle_state = raffleIdToRaffleState[raffle_id];
+        uint[] memory random_numbers = raffle_state.random_numbers;
         return random_numbers;
     }
 
     function getParticipants(uint raffle_id) external view returns (address[] memory) {
-        Raffle memory raffle = raffleIdToRaffle[raffle_id];
-        address[] memory participants = raffle.participants;
+        RaffleState memory raffle_state = raffleIdToRaffleState[raffle_id];
+        address[] memory participants = raffle_state.participants;
         return participants;
     }
 

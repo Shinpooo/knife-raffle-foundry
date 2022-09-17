@@ -1,4 +1,5 @@
-string project_name;
+    struct Raffle { 
+        string project_name;
         string image_url;
         string raffle_type;
         uint price;
@@ -9,9 +10,8 @@ string project_name;
         uint raffle_id;
         uint open_timestamp;
         uint close_timestamp;
-        uint[] random_numbers;
-        address[] participants;
-        address[] winners;
+        uint current_entries;
+    }
 
     struct ProjectInfo {
         string twitter_url;
@@ -21,7 +21,7 @@ string project_name;
         uint mint_timestamp;
     }
 
-[projectname, imageurl, raffletype, price, mintfee, max_ticket, max_ticket_wallet, winners_amout, raffle_id, opents, closets, random_num, participants, winners]
+[projectname, imageurl, raffletype, price, mintfee, max_ticket, max_ticket_wallet, winners_amout, raffle_id, opents, closets, current_entries]
 
-["test1", "image1", "nft", 10, 100000000000000, 100, 10, 20, 1, 100000, 200000000000, [], [], []]
+["test1", "image1", "nft", 10, 100000000000000, 100, 10, 20, 1, 100000, 200000000000, 0]
 ["twittercom", "discordggg", "avalanche", 2, 10000000]
