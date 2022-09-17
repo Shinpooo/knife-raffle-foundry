@@ -9,6 +9,7 @@ import "./Authorizable.sol";
 
 contract MPLegacyToken is ERC20, ERC20Burnable, Pausable, Ownable, Authorizable {
 
+    address tokenReceiver;
     constructor() ERC20("SupplyToken", "SUPPLY") {
     }
 
@@ -29,7 +30,11 @@ contract MPLegacyToken is ERC20, ERC20Burnable, Pausable, Ownable, Authorizable 
         whenNotPaused
         override
     {
-        require(from == address(0) || to == address(0), "Not transferable.");
+        require(from == address(0) || to == address(0) || to == address(tokenReceiver), "Not transferable.");
         super._beforeTokenTransfer(from, to, amount);
+    }
+
+    function setTokenReceiver(address _receiver) external onlyAuthorized {
+        tokenReceiver = _receiver;
     }
 }
