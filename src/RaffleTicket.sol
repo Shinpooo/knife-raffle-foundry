@@ -248,7 +248,8 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         return userTokens;
     }
 
-    function getDisplayedRaffles() public view returns (Raffle[] memory, ProjectInfo[] memory) {
+
+    function getDisplayedRaffles() public view returns (Raffle[] memory, ProjectInfo[] memory, RaffleState[] memory) {
         uint total_raffle_amount = _RaffleIdCounter.current();
         uint displayed_raffle_amount;
         uint currentIndex;
@@ -261,15 +262,17 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
 
         Raffle[] memory raffles = new Raffle[](displayed_raffle_amount);
         ProjectInfo[] memory projectInfos = new ProjectInfo[](displayed_raffle_amount);
+        RaffleState[] memory raffleStates = new RaffleState[](displayed_raffle_amount);
         for (uint256 i = 1; i <= total_raffle_amount; i++) {
             if ((raffleIdToRaffle[i].close_timestamp >= block.timestamp - 4 weeks && raffleIdToRaffle[i].close_timestamp <= block.timestamp) || (raffleIdToRaffle[i].open_timestamp <= block.timestamp + 4 weeks && raffleIdToRaffle[i].close_timestamp >= block.timestamp)) {
                 raffles[currentIndex] = raffleIdToRaffle[i];
                 projectInfos[currentIndex] = raffleIdToProjectInfo[i];
+                raffleStates[currentIndex] = raffleIdToRaffleState[i];
                 currentIndex += 1;
             }
         }
 
-        return (raffles, projectInfos);
+        return (raffles, projectInfos, raffleStates);
     }
 
 
