@@ -74,7 +74,7 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
     mapping (uint => mapping(address => bool)) public has_won;
     mapping (uint => ProjectInfo) public raffleIdToProjectInfo;
     mapping (uint => RaffleState) raffleIdToRaffleState;
-
+    mapping (uint => mapping(address => uint)) raffleIdToUserBalance;
     
     
     constructor(uint64 subscriptionId, address token_address) ERC721("KnivesLegacyTicket", "KLTICKET") VRFConsumerBaseV2(vrfCoordinator){
@@ -159,7 +159,7 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         require(msg.value == raffle.mint_fee * amount, "AVAX mint fee not sent.");
         require(isRaffleOpen(raffleId), "Raffle is closed.");
         require(raffle.current_entries + amount <= raffle.max_ticket, "Raffle has reached max entries.");
-        require(balanceOf(msg.sender) + amount <= raffle.max_ticket_wallet, "User has too many tickets.");
+        require(raffleIdToUserBalance[raffleId][msg.sender] + amount <= raffle.max_ticket_wallet, "User has too many tickets.");
         require(token.balanceOf(msg.sender) >= raffle.price * amount, "Not enough SUPPLY tokens.");
         token.burnFrom(msg.sender, raffle.price * amount);
         uint tokenId;
@@ -171,6 +171,7 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
             tokenIdToRaffleId[tokenId] = raffleId;
         }
         raffle.current_entries += amount;
+        raffleIdToUserBalance[raffleId][msg.sender] += amount;
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 tokenId)
