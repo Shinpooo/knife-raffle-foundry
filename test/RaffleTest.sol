@@ -41,7 +41,7 @@ contract RaffleTest is Test {
         token = new MPLegacyToken();
         stakedKnife = new StakedKnife(address(knife), address(token));
         token.addAuthorized(address(stakedKnife));
-        raffleTicket = new RaffleTicket(327, address(token));
+        // raffleTicket = new RaffleTicket(327, address(token));
         raffleTicket.addAuthorized(Ororys);
 
         
