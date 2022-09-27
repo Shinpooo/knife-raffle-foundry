@@ -13,19 +13,17 @@ import "./Authorizable.sol";
 */
 
 contract RaffleTicket is Authorizable, VRFConsumerBaseV2 {
-    VRFCoordinatorV2Interface COORDINATOR;
-
-    uint64 s_subscriptionId;
-    address vrfCoordinator;
-    bytes32 keyHash;
-    uint32 callbackGasLimit = 100000;
-    uint16 requestConfirmations = 3;
-
 
     uint256 public s_requestId;
     uint256 public current_raffle;
+    bytes32 keyHash = 0x89630569c9567e43c4fe7b1633258df9f2531b62f2352fa721cf3162ee4ecb46;
+    address vrfCoordinator = 0xd5D517aBE5cF79B7e95eC98dB0f0277788aFF634;  
+    uint64 s_subscriptionId = 72;
+    uint32 callbackGasLimit = 30000;
+    uint16 requestConfirmations = 3;
 
     MPLegacyToken token;
+    VRFCoordinatorV2Interface COORDINATOR;
 
     using Counters for Counters.Counter;
 
@@ -70,7 +68,10 @@ contract RaffleTicket is Authorizable, VRFConsumerBaseV2 {
     mapping (uint => RaffleState) raffleIdToRaffleState;
     mapping (uint => mapping(address => uint)) raffleIdToUserBalance;
     
-    
+    event ClaimFees(address indexed claimer, uint amount);
+    event WinnersPicked(uint raffleId, address[] winners);
+    event EnteredRaffle(uint indexed raffleId, address indexed user, uint amount);
+
     constructor(uint64 subscriptionId, address token_address) VRFConsumerBaseV2(vrfCoordinator){
         COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
         s_subscriptionId = subscriptionId;
@@ -80,7 +81,6 @@ contract RaffleTicket is Authorizable, VRFConsumerBaseV2 {
 
     /*
     * @notice Request a random number from Chainlink VRF V2
-    * @dev The amount increase linearly with time until it reaches a MAX_CAP where it does not increase anymore
     * @param raffleId the id of the raffle we want to get a random number for.
     */
     function requestRandomWords(uint raffleId) external onlyAuthorized {
@@ -113,6 +113,12 @@ contract RaffleTicket is Authorizable, VRFConsumerBaseV2 {
         raffle_state.random_number = randomWords[0];
     }
 
+
+    /*
+    * @notice Pick the winners for the specified raffle. Can only be called if the random numbers has been picked.
+    * @param raffleId the raffle Id.
+    * @param new_project_info the new project information data.
+    */
     function pickWinners(uint raffleId) public onlyAuthorized {
         Raffle memory raffle = raffleIdToRaffle[raffleId];
         RaffleState storage raffle_state = raffleIdToRaffleState[raffleId];
@@ -133,6 +139,7 @@ contract RaffleTicket is Authorizable, VRFConsumerBaseV2 {
             raffle_state.winners.push(winner);
             has_won[raffleId][winner] = true;
         }
+        emit WinnersPicked(raffleId, raffle_state.winners);
     }
   
     /*
@@ -184,13 +191,16 @@ contract RaffleTicket is Authorizable, VRFConsumerBaseV2 {
         }
         raffle.current_entries += amount;
         raffleIdToUserBalance[raffleId][msg.sender] += amount;
+        emit EnteredRaffle(raffleId, msg.sender, amount);
     }
 
 
     // @notice Withdraw all AVAX from the contract.
     function withdraw() external onlyAuthorized {
-        (bool os, ) = payable(msg.sender).call{value: address(this).balance}("");
+        uint amount = address(this).balance;
+        (bool os, ) = payable(msg.sender).call{value: amount}("");
         require(os, "Failed to send Avax");
+        emit ClaimFees(msg.sender, amount);
     }
 
 
@@ -329,5 +339,6 @@ contract RaffleTicket is Authorizable, VRFConsumerBaseV2 {
 
     function setVrfCoordinator(address _vrfCoordinator) external onlyAuthorized {
         vrfCoordinator = _vrfCoordinator;
+        COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
     }
 }
