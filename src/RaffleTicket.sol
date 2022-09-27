@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
@@ -11,16 +9,16 @@ import "./Authorizable.sol";
 
 /*
 * @author Pooshin
-* @notice This a Raffle contract for Knives Legacy. It allows for the owners to create & edit Raffles for NFT projects. Raffles entries are minted as an NFT
+* @notice This a Raffle contract for Knives Legacy. It allows for the owners to create & edit Raffles for NFT projects. Winners are picked based on Chainlink VRF V2 Randomness.
 */
 
-contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBaseV2 {
+contract RaffleTicket is Authorizable, VRFConsumerBaseV2 {
     VRFCoordinatorV2Interface COORDINATOR;
 
     uint64 s_subscriptionId;
-    address vrfCoordinator = 0x2eD832Ba664535e5886b75D64C46EB9a228C2610;
-    bytes32 keyHash = 0x354d2f95da55398f44b7cff77da56283d9c6c829a4bdf1bbcaf2ad6a4d081f61;
-    uint32 callbackGasLimit = 2500000;
+    address vrfCoordinator;
+    bytes32 keyHash;
+    uint32 callbackGasLimit = 100000;
     uint16 requestConfirmations = 3;
 
 
@@ -34,7 +32,7 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
     Counters.Counter private _tokenIdCounter;
     Counters.Counter private _RaffleIdCounter;
 
-
+    // Raffle Info
     struct Raffle { 
         string project_name;
         string image_url;
@@ -50,6 +48,7 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         uint current_entries;
     }
 
+    // Additional raffle info related to the project
     struct ProjectInfo {
         string twitter_url;
         string discord_url;
@@ -58,18 +57,13 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         uint mint_timestamp;
     }
 
-    struct tokenInfo {
-        uint tokenId;
-        uint raffleId;
-    }
-
+    // raffle state that will be update through the smart contract
     struct RaffleState {
-        uint[] random_numbers;
+        uint random_number;
         address[] participants;
         address[] winners;
     }
 
-    mapping (uint => uint) public tokenIdToRaffleId;
     mapping (uint => Raffle) public raffleIdToRaffle;
     mapping (uint => mapping(address => bool)) public has_won;
     mapping (uint => ProjectInfo) public raffleIdToProjectInfo;
@@ -77,24 +71,28 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
     mapping (uint => mapping(address => uint)) raffleIdToUserBalance;
     
     
-    constructor(uint64 subscriptionId, address token_address) ERC721("KnivesLegacyTicket", "KLTICKET") VRFConsumerBaseV2(vrfCoordinator){
+    constructor(uint64 subscriptionId, address token_address) VRFConsumerBaseV2(vrfCoordinator){
         COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
         s_subscriptionId = subscriptionId;
         token = MPLegacyToken(token_address);
     }
 
 
-
+    /*
+    * @notice Request a random number from Chainlink VRF V2
+    * @dev The amount increase linearly with time until it reaches a MAX_CAP where it does not increase anymore
+    * @param raffleId the id of the raffle we want to get a random number for.
+    */
     function requestRandomWords(uint raffleId) external onlyAuthorized {
         // Will revert if subscription is not set and funded.
         Raffle memory raffle = raffleIdToRaffle[raffleId];
         RaffleState memory raffle_state = raffleIdToRaffleState[raffleId];
         require(block.timestamp > raffle.close_timestamp, "Raffle should be finished.");
         require(raffle.winners_amount < raffle.current_entries, "Not enough participants.");
-        require(raffle_state.random_numbers.length == 0, "Random Numbers already picked.");
+        require(raffle_state.random_number == 0, "Random Number already requested.");
         current_raffle = raffleId;
-        uint32 numWords = raffle.winners_amount;
-        uint32 _callbackGasLimit = callbackGasLimit == 0 ? 20000 * numWords : callbackGasLimit; // Default value = 20000 * n_random
+        uint32 numWords = 1;
+        uint32 _callbackGasLimit = callbackGasLimit; 
         s_requestId = COORDINATOR.requestRandomWords(
         keyHash,
         s_subscriptionId,
@@ -104,31 +102,32 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         );
     }
 
-
+    /*
+    * @notice Receive the random number & update the according storage.
+    */
     function fulfillRandomWords(
         uint256, /* requestId */
         uint256[] memory randomWords
     ) internal override {
-        Raffle memory raffle = raffleIdToRaffle[current_raffle];
         RaffleState storage raffle_state = raffleIdToRaffleState[current_raffle];
-        for (uint i=0; i < raffle.winners_amount; i++) {
-            raffle_state.random_numbers.push(randomWords[i]);
-        }
+        raffle_state.random_number = randomWords[0];
     }
 
     function pickWinners(uint raffleId) public onlyAuthorized {
         Raffle memory raffle = raffleIdToRaffle[raffleId];
         RaffleState storage raffle_state = raffleIdToRaffleState[raffleId];
         require(raffle_state.winners.length == 0, "Winners already set.");
-        uint[] memory random_numbers = raffle_state.random_numbers;
+        require(raffle_state.random_number != 0, "request a random number first.");
+        uint true_random_number = raffle_state.random_number;
         uint n_participants = raffle.current_entries;
+        uint pseudo_random_number;
         for (uint i=0; i < raffle.winners_amount; i++) {
-            uint random_number = random_numbers[i];
-            uint random_index = random_number % n_participants;
+            pseudo_random_number = uint(keccak256(abi.encodePacked(i, pseudo_random_number,true_random_number)));
+            uint random_index = pseudo_random_number % n_participants;
             address winner = raffle_state.participants[random_index];
             while (has_won[raffleId][winner]){
-                random_number += 1;
-                random_index = random_number % n_participants;
+                pseudo_random_number += 1;
+                random_index = pseudo_random_number % n_participants;
                 winner = raffle_state.participants[random_index];
             }
             raffle_state.winners.push(winner);
@@ -136,7 +135,11 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         }
     }
   
-
+    /*
+    * @notice Create a raffle.
+    * @param new_raffle the new raffle data.
+    * @param new_project_info the new project information data.
+    */
     function createRaffle(Raffle memory new_raffle, ProjectInfo memory new_project_info) public onlyAuthorized {
         _RaffleIdCounter.increment();
         uint raffle_id = _RaffleIdCounter.current();
@@ -146,6 +149,12 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         raffleIdToProjectInfo[raffle_id] = new_project_info;
     }
 
+    /*
+    * @notice Edit a raffle.
+    * @param raffleId the id of the raffle to edit.
+    * @param new_raffle the edited raffle data.
+    * @param new_project_info the edited project information data.
+    */
     function editRaffle(uint raffleId, Raffle memory new_raffle, ProjectInfo memory new_project_info) public onlyAuthorized {
         new_raffle.raffle_id = raffleId;
         new_raffle.current_entries = raffleIdToRaffle[raffleId].current_entries;
@@ -153,6 +162,11 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         raffleIdToProjectInfo[raffleId] = new_project_info;
     }
 
+    /*
+    * @notice Enter a raffle.
+    * @param raffleId the id of the raffle we want to enter.
+    * @param amount the amount of entries we want to get.
+    */
     function safeMint(uint raffleId, uint amount) public payable {
         Raffle storage raffle = raffleIdToRaffle[raffleId];
         RaffleState storage raffle_state = raffleIdToRaffleState[raffleId];
@@ -166,44 +180,26 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         for (uint i = 0; i < amount; i++){
             _tokenIdCounter.increment();
             tokenId = _tokenIdCounter.current();
-            _safeMint(msg.sender, tokenId);
             raffle_state.participants.push(msg.sender);
-            tokenIdToRaffleId[tokenId] = raffleId;
         }
         raffle.current_entries += amount;
         raffleIdToUserBalance[raffleId][msg.sender] += amount;
     }
 
-    function _beforeTokenTransfer(address from, address to, uint256 tokenId)
-        internal
-        override(ERC721, ERC721Enumerable)
-    {   
-        require(from == address(0) || to == address(0), "Non transferable NFT.");
-        super._beforeTokenTransfer(from, to, tokenId);
-    }
 
-
-
-    // The following functions are overrides required by Solidity.
-
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(ERC721, ERC721Enumerable)
-        returns (bool)
-    {
-        return super.supportsInterface(interfaceId);
-    }
-
+    // @notice Withdraw all AVAX from the contract.
     function withdraw() external onlyAuthorized {
         (bool os, ) = payable(msg.sender).call{value: address(this).balance}("");
         require(os, "Failed to send Avax");
     }
 
 
-    
-    // VIEWS
-
+    // VIEWS //
+    /*
+    * @notice Get the current state (open, coming soon, closed) of the raffle.
+    * @param raffleId the id of the raffle.
+    * @return the state of the raffle
+    */
     function getRaffleState(uint raffleId) public view returns (uint){
         Raffle memory raffle = raffleIdToRaffle[raffleId];
         if (block.timestamp < raffle.open_timestamp) return 1; // SOON
@@ -211,45 +207,64 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         else return 3; // OPEN
     }
 
+    /*
+    * @notice Get the winners of a given raffle.
+    * @param raffleId the id of the raffle.
+    * @return an array of the winners adresses of the given raffle, empty if raffle is not finished.
+    */
     function getWinners(uint raffle_id) external view returns (address[] memory) {
         RaffleState memory raffle_state = raffleIdToRaffleState[raffle_id];
         address[] memory winners = raffle_state.winners;
         return winners;
     }
 
-    function getRandomNumbers(uint raffle_id) external view returns (uint[] memory) {
+    /*
+    * @notice Get the random number picked by chainlink of a raffle.
+    * @param raffleId the id of the raffle.
+    * @return the random number, 0 if the number has not been picked yet.
+    */
+    function getRandomNumber(uint raffle_id) external view returns (uint) {
         RaffleState memory raffle_state = raffleIdToRaffleState[raffle_id];
-        uint[] memory random_numbers = raffle_state.random_numbers;
-        return random_numbers;
+        return raffle_state.random_number;
     }
 
+    /*
+    * @notice Get the winners of a given raffle.
+    * @param raffleId the id of the raffle.
+    * @return an array of the participants addresses of the given raffle.
+    */
     function getParticipants(uint raffle_id) external view returns (address[] memory) {
         RaffleState memory raffle_state = raffleIdToRaffleState[raffle_id];
         address[] memory participants = raffle_state.participants;
         return participants;
     }
 
+    /*
+    * @notice Get the winners of a given raffle.
+    * @param raffleId the id of the raffle.
+    * @return an array of the participants addresses of the given raffle.
+    */
     function isRaffleOpen(uint raffleId) public view returns (bool){
         Raffle memory raffle = raffleIdToRaffle[raffleId];
         return block.timestamp >= raffle.open_timestamp && block.timestamp <= raffle.close_timestamp;
     }
 
+    /*
+    * @notice Check if an address has won a raffle.
+    * @param raffleId the id of the raffle.
+    * @param user the user address.
+    * @return bool - true if the user has won, else fale
+    */
     function hasWon(uint raffleId, address user) external view returns (bool){
         return has_won[raffleId][user];
     }
 
-    function tokenIdsOfUser(address user) public view returns (tokenInfo[] memory) {
-        uint256 ownerTokenCount = balanceOf(user);
-        tokenInfo[] memory userTokens = new tokenInfo[](ownerTokenCount);
-        for (uint256 i; i < ownerTokenCount; i++) {
-            uint tokenId = tokenOfOwnerByIndex(user, i);
-            userTokens[i].raffleId = tokenIdToRaffleId[tokenId];
-            userTokens[i].tokenId = tokenId;
-        }
-        return userTokens;
-    }
-
-
+    /*
+    * @notice Display all the raffles info with a [-4 weeks, + 4 weeks] range from the current date
+    * @param raffleId the id of the raffle.
+    * @param user the user address.
+    * @return arrays of Raffles, ProjectInfos, RaffleStates.
+    */
     function getDisplayedRaffles() public view returns (Raffle[] memory, ProjectInfo[] memory, RaffleState[] memory) {
         uint total_raffle_amount = _RaffleIdCounter.current();
         uint displayed_raffle_amount;
@@ -276,9 +291,26 @@ contract RaffleTicket is ERC721, ERC721Enumerable, Authorizable, VRFConsumerBase
         return (raffles, projectInfos, raffleStates);
     }
 
+     /*
+    * @notice Display all the raffles infos.
+    * @return arrays of Raffles, ProjectInfos, RaffleStates.
+    */
+    function getAllRaffles() public view returns (Raffle[] memory, ProjectInfo[] memory, RaffleState[] memory) {
+        uint total_raffle_amount = _RaffleIdCounter.current();
+        Raffle[] memory raffles = new Raffle[](total_raffle_amount);
+        ProjectInfo[] memory projectInfos = new ProjectInfo[](total_raffle_amount);
+        RaffleState[] memory raffleStates = new RaffleState[](total_raffle_amount);
+        for (uint256 i = 1; i <= total_raffle_amount; i++) {
+                raffles[i-1] = raffleIdToRaffle[i];
+                projectInfos[i-1] = raffleIdToProjectInfo[i];
+                raffleStates[i-1] = raffleIdToRaffleState[i];
+        }
 
-    // VRF PARAMS SETTERS
+        return (raffles, projectInfos, raffleStates);
+    }
 
+
+    // VRF PARAMS SETTERS //
     function setRequestConfirmation(uint16 _requestConfirmation) external onlyAuthorized {
         requestConfirmations = _requestConfirmation;
     }
